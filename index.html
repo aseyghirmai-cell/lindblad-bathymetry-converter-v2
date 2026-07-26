@@ -3,172 +3,207 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>The Lindblad Bathymetry Converter</title>
-  <meta name="description" content="Convert MB57 and Kongsberg ALL multibeam bathymetry into Olex-compatible gzip depth data.">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIINfQ3ynqJgB6bMZ7YibmMZc5tkJHEbJ8c=" crossorigin="">
+  <title>Lindblad Bathymetry Converter</title>
+  <meta name="description" content="Convert MB57, compressed MB57 and Kongsberg ALL multibeam data into one Olex-compatible gzip file.">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand-mark" aria-hidden="true">◈</div>
-    <div>
-      <p class="brand-kicker">MB-SYSTEM HYDROGRAPHIC PROCESSING</p>
-      <h1>The Lindblad Bathymetry Converter</h1>
-    </div>
-    <div class="topbar-status">
-      <span>Secure processing</span>
-      <strong>Fleet ready</strong>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="compass-mark" aria-hidden="true">
+        <svg viewBox="0 0 100 100" role="img" aria-label="Compass symbol">
+          <circle cx="50" cy="50" r="40"></circle>
+          <circle cx="50" cy="50" r="29"></circle>
+          <path d="M50 7 58 42 93 50 58 58 50 93 42 58 7 50 42 42Z"></path>
+          <path class="accent" d="M50 19 55 45 50 50 45 45Z"></path>
+          <circle cx="50" cy="50" r="5"></circle>
+        </svg>
+      </div>
+
+      <div class="hero-copy">
+        <p class="eyebrow">MB-SYSTEM FORMAT 57 · KONGSBERG ALL → OLEX</p>
+        <h1>Lindblad Bathymetry Converter</h1>
+        <p class="hero-description">
+          Upload one or more bathymetry files and create one combined gzip-compressed
+          Olex point grid in <strong>latitude longitude depth</strong> format.
+        </p>
+      </div>
+
+      <div class="expedition-wordmark" aria-label="Lindblad Expeditions inspired maritime interface">
+        <span class="eye-mark">◉</span>
+        <div>
+          <strong>Lindblad</strong>
+          <strong>Expeditions</strong>
+          <small>Exploration with purpose</small>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main class="dashboard">
-    <section class="control-column">
-      <article class="panel">
+  <main class="page-shell">
+    <form id="converter-form" class="main-card" novalidate>
+      <section class="upload-section">
         <div class="section-heading">
-          <span class="step">1</span>
-          <div>
-            <h2>Upload multibeam files</h2>
-            <p>MB57 or Kongsberg ALL</p>
-          </div>
+          <span>1.</span>
+          <h2>Upload bathymetry files</h2>
         </div>
 
-        <form id="converter-form">
-          <label class="dropzone" id="dropzone" for="file">
-            <input id="file" name="files" type="file" accept=".mb57,.mb57.gz,.all,.all.gz,.gz" multiple required>
-            <span class="dropzone__icon">⇧</span>
-            <strong>Choose or drop multibeam files</strong>
-            <small>.mb57, .mb57.gz, .all or .all.gz</small>
+        <label class="dropzone" id="dropzone" for="file-input">
+          <input id="file-input" name="files" type="file"
+                 accept=".mb57,.mb57.gz,.all,.all.gz" multiple required>
+          <span class="upload-arrow" aria-hidden="true">⇧</span>
+          <strong>Choose or drop one or more files here</strong>
+          <span>Accepted: .mb57, .mb57.gz, .all, .all.gz</span>
+          <small>Combined decompressed size limit: 500 MB</small>
+        </label>
+
+        <div id="file-list" class="file-list" aria-live="polite">
+          <p class="empty-state">No files selected</p>
+        </div>
+
+        <div class="file-summary">
+          <span id="file-count">0 files uploaded</span>
+          <strong id="estimated-size">Estimated decompressed size: 0 MB / 500 MB</strong>
+        </div>
+        <div class="capacity-track" aria-label="Estimated combined decompressed size">
+          <span id="capacity-bar"></span>
+        </div>
+        <p class="estimate-note">The server verifies the actual decompressed size before processing.</p>
+      </section>
+
+      <section class="output-section">
+        <div class="section-heading">
+          <span>2.</span>
+          <h2>Choose output type</h2>
+        </div>
+
+        <fieldset class="output-options">
+          <label class="output-option">
+            <input type="radio" name="output_mode" value="raw">
+            <span>
+              <strong>Raw sounding data (no grid)</strong>
+              <small>Keeps every valid positive sounding without gridding.</small>
+            </span>
           </label>
 
-          <div id="file-list" class="file-list">
-            <p class="empty-state">No files selected</p>
-          </div>
-
-          <div class="size-summary">
-            <div>
-              <span>Compressed upload</span>
-              <strong id="compressed-size">0 MB</strong>
-            </div>
-            <div>
-              <span>Combined working limit</span>
-              <strong>500 MB</strong>
-            </div>
-          </div>
-          <div class="capacity-track"><span id="capacity-bar"></span></div>
-
-          <div class="section-heading section-heading--spaced">
-            <span class="step">2</span>
-            <div>
-              <h2>Select output format</h2>
-              <p>Shallowest positive depth for every grid</p>
-            </div>
-          </div>
-
-          <fieldset>
-            <label class="option">
-              <input type="radio" name="output_mode" value="raw">
-              <span><strong>Raw sounding data</strong><small>No grid — retains all valid soundings.</small></span>
-            </label>
-            <label class="option option--recommended">
-              <input type="radio" name="output_mode" value="grid15" checked>
-              <span><strong>15 × 15 m grid <em>Recommended</em></strong><small>Shallowest depth in each populated cell.</small></span>
-            </label>
-            <label class="option">
-              <input type="radio" name="output_mode" value="grid20">
-              <span><strong>20 × 20 m grid</strong><small>Shallowest depth in each populated cell.</small></span>
-            </label>
-            <label class="option">
-              <input type="radio" name="output_mode" value="grid25">
-              <span><strong>25 × 25 m grid</strong><small>Shallowest depth in each populated cell.</small></span>
-            </label>
-          </fieldset>
-
-          <label class="acknowledgement">
-            <input type="checkbox" id="acknowledgement" name="acknowledgement" required>
-            <span>I will verify the output in a separate Olex test database before operational use.</span>
+          <label class="output-option">
+            <input type="radio" name="output_mode" value="grid15" checked>
+            <span>
+              <strong>15 × 15 m grid <em>Recommended</em></strong>
+              <small>Keeps the shallowest positive depth in each populated 15 m cell.</small>
+            </span>
           </label>
 
-          <button id="submit-button" type="submit">Convert &amp; validate Olex file</button>
-        </form>
-        <div class="error hidden" id="error" role="alert"></div>
-      </article>
-    </section>
+          <label class="output-option">
+            <input type="radio" name="output_mode" value="grid20">
+            <span>
+              <strong>20 × 20 m grid</strong>
+              <small>Keeps the shallowest positive depth in each populated 20 m cell.</small>
+            </span>
+          </label>
 
-    <section class="workspace-column">
-      <article class="panel map-panel">
-        <div class="section-heading">
-          <span class="step">3</span>
+          <label class="output-option">
+            <input type="radio" name="output_mode" value="grid25">
+            <span>
+              <strong>25 × 25 m grid</strong>
+              <small>Keeps the shallowest positive depth in each populated 25 m cell.</small>
+            </span>
+          </label>
+        </fieldset>
+
+        <label class="acknowledgement">
+          <input id="acknowledgement" name="acknowledgement" type="checkbox" required>
+          <span>I will verify the result in a separate Olex test database before operational use.</span>
+        </label>
+
+        <div id="processing-panel" class="processing-panel hidden" aria-live="polite">
+          <div class="processing-header">
+            <span class="spinner" aria-hidden="true"></span>
+            <div>
+              <strong>Processing with MB-System</strong>
+              <small id="processing-message">Uploading source files…</small>
+            </div>
+          </div>
+          <div class="processing-track"><span id="processing-bar"></span></div>
+          <div class="processing-stages" id="processing-stages">
+            <span>Upload</span><span>Inspect</span><span>Extract</span><span>Grid</span><span>Validate</span><span>Compress</span>
+          </div>
+        </div>
+
+        <div id="error-box" class="error-box hidden" role="alert"></div>
+
+        <div class="convert-row">
+          <button id="convert-button" type="submit">
+            <span aria-hidden="true">⚓</span>
+            Convert to Olex .gz
+          </button>
+          <p><span aria-hidden="true">▣</span> Files are processed securely and removed automatically.</p>
+        </div>
+      </section>
+    </form>
+
+    <aside class="side-column">
+      <section class="side-card specification-card">
+        <h2>Output specification</h2>
+        <dl class="spec-list">
+          <div><dt><span>▧</span> Compression</dt><dd>gzip</dd></div>
+          <div><dt><span>▤</span> Text columns</dt><dd>Latitude Longitude Depth</dd></div>
+          <div><dt><span>⌖</span> Coordinates</dt><dd>WGS 84 decimal degrees</dd></div>
+          <div><dt><span>⌁</span> Depth</dt><dd>Positive metres</dd></div>
+          <div><dt><span>⊞</span> Output options</dt><dd>Raw, 15 m, 20 m or 25 m</dd></div>
+          <div><dt><span>⌁</span> Depth rule</dt><dd>Shallowest positive depth</dd></div>
+        </dl>
+
+        <div class="supported-formats">
+          <h3>Supported input formats</h3>
+          <div><strong>.mb57</strong><span>MB-System Format 57</span></div>
+          <div><strong>.mb57.gz</strong><span>Compressed MB-System Format 57</span></div>
+          <div><strong>.all</strong><span>Kongsberg raw ALL format</span></div>
+          <div><strong>.all.gz</strong><span>Compressed Kongsberg ALL format</span></div>
+        </div>
+
+        <div class="safety-callout" id="safety">
+          <span class="callout-icon" aria-hidden="true">✥</span>
           <div>
-            <h2>Actual sonar sounding tracks</h2>
-            <p>Each source file is displayed in a separate color</p>
-          </div>
-          <span class="status-pill" id="map-status">Waiting for conversion</span>
-        </div>
-
-        <div class="map-shell">
-          <div id="map" aria-label="Map of sampled sonar sounding positions"></div>
-          <div id="map-placeholder" class="map-placeholder">
-            <strong>Survey map will appear here</strong>
-            <span>Convert the selected files to inspect their actual sounding coverage.</span>
-          </div>
-          <div id="map-legend" class="map-legend hidden"></div>
-        </div>
-        <p class="map-note" id="map-note">
-          Only sampled positions from actual extracted soundings are plotted. No rectangular survey area is filled.
-        </p>
-      </article>
-
-      <article class="panel process-panel">
-        <div class="section-heading">
-          <span class="step">4</span>
-          <div>
-            <h2>Conversion process</h2>
-            <p id="process-subtitle">Ready for data</p>
+            <h3>Not an ENC replacement</h3>
+            <p>Conversion does not certify the source survey or establish its vertical datum, tide correction, accuracy, completeness or navigational status.</p>
           </div>
         </div>
-        <div class="process-steps" id="process-steps">
-          <div data-stage="0"><span>1</span><strong>Upload</strong><small>Waiting</small></div>
-          <div data-stage="1"><span>2</span><strong>Inspect</strong><small>Waiting</small></div>
-          <div data-stage="2"><span>3</span><strong>Extract</strong><small>Waiting</small></div>
-          <div data-stage="3"><span>4</span><strong>Grid</strong><small>Waiting</small></div>
-          <div data-stage="4"><span>5</span><strong>Validate</strong><small>Waiting</small></div>
-          <div data-stage="5"><span>6</span><strong>Compress</strong><small>Waiting</small></div>
-        </div>
-      </article>
+      </section>
 
-      <article class="panel results hidden" id="results">
-        <div class="results-top">
-          <div>
-            <p class="brand-kicker">OUTPUT READY</p>
-            <h2 id="output-name">Olex output</h2>
-          </div>
-          <a class="primary-download" id="download-link" href="#">Download Olex .gz</a>
+      <section class="side-card quick-summary">
+        <h2>Quick summary</h2>
+        <div class="summary-grid">
+          <div><span class="summary-icon">▱</span><strong id="summary-files">0</strong><small>Files uploaded</small></div>
+          <div><span class="summary-icon">▦</span><strong id="summary-size">0 MB</strong><small>Estimated decompressed</small></div>
+          <div><span class="summary-icon">⌁</span><strong id="summary-status">Ready</strong><small>To convert</small></div>
         </div>
+      </section>
 
-        <div class="metrics">
-          <div><span>Files</span><strong id="source-files">—</strong></div>
-          <div><span>Soundings</span><strong id="input-points">—</strong></div>
-          <div><span>Output rows</span><strong id="grid-cells">—</strong></div>
-          <div><span>Depth range</span><strong id="depth-range">—</strong></div>
-          <div><span>Resolution</span><strong id="method-result">—</strong></div>
+      <section id="results-card" class="side-card results-card hidden" aria-live="polite">
+        <div class="result-heading">
+          <span class="ready-check">✓</span>
+          <div><small>OUTPUT READY</small><h2 id="output-name">Olex file</h2></div>
         </div>
-
-        <div id="survey-table" class="survey-table"></div>
-        <div class="result-actions">
-          <a id="report-link" href="#">Download conversion report</a>
-          <span><strong>SHA-256:</strong> <code id="checksum">—</code></span>
+        <div class="result-metrics">
+          <div><span>Source files</span><strong id="result-files">—</strong></div>
+          <div><span>Input soundings</span><strong id="result-input">—</strong></div>
+          <div><span>Rejected</span><strong id="result-rejected">—</strong></div>
+          <div><span>Output rows</span><strong id="result-output">—</strong></div>
+          <div><span>Depth range</span><strong id="result-depth">—</strong></div>
+          <div><span>Output mode</span><strong id="result-mode">—</strong></div>
         </div>
-      </article>
-    </section>
+        <a id="download-link" class="download-primary" href="#">Download Olex file (.gz)</a>
+        <a id="report-link" class="download-secondary" href="#">Download conversion report</a>
+        <p class="checksum"><strong>SHA-256:</strong> <code id="checksum">—</code></p>
+      </section>
+    </aside>
   </main>
 
   <footer>
-    Supplementary bathymetry only — not a replacement for official ENCs or approved hydrographic products.
+    Supplementary bathymetry only. Verify all imported data against authoritative charts and approved hydrographic products.
   </footer>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="/app.js"></script>
 </body>
 </html>

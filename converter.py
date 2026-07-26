@@ -157,6 +157,22 @@ def kongsberg_all_model(path: Path) -> int | None:
     return int.from_bytes(header[6:8], byteorder="big", signed=False)
 
 
+
+def classify_input_type(filename: str) -> str:
+    """Return one of the three user-facing supported input categories."""
+    lower_name = filename.lower()
+    if lower_name.endswith(".mb57.gz"):
+        return "Compressed processed MB57 (.mb57.gz)"
+    if lower_name.endswith(".mb57"):
+        return "Processed MB57 (.mb57)"
+    if lower_name.endswith(".all") or lower_name.endswith(".all.gz"):
+        return "Kongsberg raw ALL (.all)"
+    raise ConversionError(
+        "Unsupported input type. Use .mb57, .mb57.gz or Kongsberg .all "
+        "(.all.gz is also accepted)."
+    )
+
+
 def candidate_mb_formats(original_filename: str, input_path: Path) -> tuple[list[int], int | None]:
     lower_name = original_filename.lower()
     if lower_name.endswith(".mb57") or lower_name.endswith(".mb57.gz"):
@@ -169,7 +185,7 @@ def candidate_mb_formats(original_filename: str, input_path: Path) -> tuple[list
         if model in older_models:
             return [56, 58], model
         return [58, 56], model
-    raise ConversionError("Unsupported input type. Use .mb57, .mb57.gz, .all or .all.gz.")
+    raise ConversionError("Unsupported input type. Use .mb57, .mb57.gz or Kongsberg .all (.all.gz is also accepted).")
 
 
 def run_mbinfo(
@@ -822,11 +838,9 @@ def convert_bathymetry_files(
                 if xyz_path.stat().st_size:
                     combined_xyz.write(b"\n")
 
-            sounding_preview = build_sounding_preview(xyz_path)
-
             source_reports.append({
                 "original_filename": original_filename,
-                "input_type": "Kongsberg ALL raw" if underlying_suffix == ".all" else "MB-System processed MB57",
+                "input_type": classify_input_type(original_filename),
                 "compressed_or_uploaded_size_bytes": source_path.stat().st_size,
                 "decompressed_or_working_size_bytes": uncompressed_size,
                 "sha256": sha256_file(source_path),
@@ -834,7 +848,6 @@ def convert_bathymetry_files(
                 "kongsberg_sonar_model": sonar_model,
                 "bounds_from_mbinfo": mbinfo_bounds.to_dict() if mbinfo_bounds else None,
                 "depth_range_from_mbinfo_m": mbinfo_depths.to_dict() if mbinfo_depths else None,
-                "sounding_preview": sounding_preview,
             })
             mbinfo_excerpts.append(
                 f"===== {original_filename} | MB-System format {format_id} =====\n{mbinfo_text[-3500:]}"
@@ -873,7 +886,7 @@ def convert_bathymetry_files(
     validation = validate_olex_gz(output_path)
     report: dict[str, object] = {
         "application": "The Lindblad Bathymetry Converter",
-        "application_version": "1.8.0",
+        "application_version": "2.0.0",
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "source": {
             "file_count": len(source_files),
@@ -882,7 +895,11 @@ def convert_bathymetry_files(
             "files": source_reports,
         },
         "processing": {
-            "supported_inputs": ["MB57", "MB57.GZ", "Kongsberg ALL", "Kongsberg ALL.GZ"],
+            "supported_inputs": [
+                "Processed MB57 (.mb57)",
+                "Compressed processed MB57 (.mb57.gz)",
+                "Kongsberg raw ALL (.all; .all.gz also accepted)",
+            ],
             "output_mode": output_mode,
             "output_mode_label": mode_label,
             "grid_size_m": grid_size_m,

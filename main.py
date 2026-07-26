@@ -22,7 +22,7 @@ COMMAND_TIMEOUT_SECONDS = int(os.getenv("COMMAND_TIMEOUT_SECONDS", "3600"))
 
 app = FastAPI(
     title="The Lindblad Bathymetry Converter",
-    version="1.8.0",
+    version="2.0.0",
     docs_url="/api/docs",
     redoc_url=None,
 )
@@ -71,7 +71,22 @@ def javascript() -> FileResponse:
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "version": "1.8.0"}
+    return {"status": "ok", "version": "2.0.0"}
+
+
+@app.get("/api/capabilities")
+def capabilities() -> dict[str, object]:
+    return {
+        "supported_input_types": [
+            {"type": "Processed MB57", "extensions": [".mb57"]},
+            {"type": "Compressed processed MB57", "extensions": [".mb57.gz"]},
+            {"type": "Kongsberg raw ALL", "extensions": [".all", ".all.gz"]},
+        ],
+        "mixed_uploads_supported": True,
+        "single_combined_olex_output": True,
+        "output_extension": ".gz",
+        "combined_decompressed_limit_mb": 500,
+    }
 
 
 @app.post("/api/convert")
@@ -90,7 +105,7 @@ async def convert(
     if output_mode not in {"raw", "grid15", "grid20", "grid25"}:
         raise HTTPException(status_code=400, detail="Unsupported output mode.")
     if not files:
-        raise HTTPException(status_code=400, detail="Select at least one MB57 or Kongsberg ALL file.")
+        raise HTTPException(status_code=400, detail="Select at least one .mb57, .mb57.gz or Kongsberg .all file.")
     if len(files) > 100:
         raise HTTPException(
             status_code=400,
@@ -112,7 +127,7 @@ async def convert(
                 raise HTTPException(
                     status_code=400,
                     detail=f"Unsupported file: {original_filename}. "
-                           "Every file must end in .mb57, .mb57.gz, .all or .all.gz.",
+                           "Every file must be .mb57, .mb57.gz or Kongsberg .all (.all.gz is also accepted).",
                 )
 
             upload_path = job_dir / (
@@ -156,7 +171,9 @@ async def convert(
             "summary": {
                 "source_file_count": report["source"]["file_count"],
                 "combined_upload_size_bytes": report["source"]["combined_uploaded_size_bytes"],
+                "combined_working_size_bytes": report["source"]["combined_decompressed_or_working_size_bytes"],
                 "accepted_input_points": report["statistics"]["accepted_input_points"],
+                "rejected_input_points": report["statistics"]["rejected_input_rows_or_points"],
                 "output_grid_cells": report["statistics"]["output_grid_cells"],
                 "output_depth_range_m": report["statistics"]["output_depth_range_m"],
                 "bounds": report["statistics"]["combined_source_bounds_from_points"],
@@ -167,24 +184,6 @@ async def convert(
                 "grid_size_m": report["processing"]["grid_size_m"],
                 "output_sha256": report["output"]["sha256"],
             },
-            "surveys": [
-                {
-                    "filename": item["original_filename"],
-                    "input_type": item["input_type"],
-                    "mb_system_format": item["mb_system_format"],
-                    "sonar_model": item["kongsberg_sonar_model"],
-                    "sounding_count": item["sounding_preview"]["sounding_count"],
-                    "rejected_count": item["sounding_preview"]["rejected_rows_or_soundings"],
-                    "depth_range_m": item["sounding_preview"]["depth_range_m"],
-                    "bounds": item["sounding_preview"]["bounds"],
-                    "points": item["sounding_preview"]["points"],
-                }
-                for item in report["source"]["files"]
-            ],
-            "map_note": (
-                "The map shows sampled positions from the actual extracted soundings "
-                "for each source file. It does not display a filled rectangular boundary."
-            ),
             "safety_notice": report["safety_notice"],
         }
 
