@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: olex-mb57-converter
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: MAX_UPLOAD_MB
+        value: "500"
+      - key: MAX_UNCOMPRESSED_GB
+        value: "0.48828125"
+      - key: JOB_TTL_SECONDS
+        value: "3600"
+      - key: COMMAND_TIMEOUT_SECONDS
+        value: "3600"
+      - key: WORK_ROOT
+        value: "/tmp/olex-converter"
