@@ -86,3 +86,22 @@ radial-gradient(circle at center,rgba(26,87,123,.26),transparent 55%),#061827;co
 footer{position:relative;z-index:1;text-align:center;color:#7690a4;font-size:.7rem;padding:0 18px 22px}
 @media(max-width:980px){.dashboard{grid-template-columns:1fr}.map-shell{height:420px}}
 @media(max-width:680px){.topbar-status{display:none}.topbar{padding:12px 15px}h1{font-size:1.2rem}.dashboard{padding:10px}.map-shell{height:360px}.map-legend{width:55%}.process-steps{grid-template-columns:repeat(3,1fr);row-gap:18px}.process-steps>div:before{display:none}.metrics{grid-template-columns:repeat(2,1fr)}.survey-table__head{display:none}.survey-table__row{grid-template-columns:1fr 1fr}.results-top,.result-actions{align-items:flex-start;flex-direction:column}}
+
+
+/* Map hotfix: used only when the external basemap tile service is unavailable. */
+#map.basemap-fallback {
+  background-color: #0b3550;
+  background-image:
+    linear-gradient(rgba(144, 196, 221, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(144, 196, 221, 0.13) 1px, transparent 1px),
+    radial-gradient(circle at 45% 45%, rgba(47, 125, 165, 0.28), transparent 55%);
+  background-size: 64px 64px, 64px 64px, 100% 100%;
+}
+
+.leaflet-tile {
+  image-rendering: auto;
+}
+
+.leaflet-tile-container {
+  will-change: transform;
+}

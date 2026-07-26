@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: lindblad-bathymetry-converter-v2
+    name: olex-mb57-converter
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile

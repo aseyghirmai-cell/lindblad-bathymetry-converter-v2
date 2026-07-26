@@ -1,4 +1,4 @@
-# The Lindblad Bathymetry Converter v1.7
+# The Lindblad Bathymetry Converter v1.8
 
 ## New in v1.7
 
@@ -36,3 +36,16 @@ The dashboard map uses a controlled sample of actual sounding positions to keep
 the browser responsive. It represents the sonar swath/track pattern and does not
 invent coverage between soundings. The full extracted dataset is still used for
 the Olex conversion.
+
+
+## Map hotfix in v1.8
+
+- Uses the single official OpenStreetMap tile hostname.
+- Retries normal map rendering without affecting the bathymetry conversion.
+- Removes the broken checkerboard if repeated basemap tile requests fail.
+- Keeps the actual colored sounding tracks visible on a clean ocean background.
+- Recalculates the Leaflet map dimensions after results become visible.
+- Uses robust map bounds so an isolated invalid coordinate does not make the
+  real survey appear as a tiny dot.
+- Filters invalid preview coordinates and non-positive preview depths.
+- The conversion engine and supported MB57/ALL inputs remain unchanged.

@@ -873,7 +873,7 @@ def convert_bathymetry_files(
     validation = validate_olex_gz(output_path)
     report: dict[str, object] = {
         "application": "The Lindblad Bathymetry Converter",
-        "application_version": "1.7.0",
+        "application_version": "1.8.0",
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "source": {
             "file_count": len(source_files),

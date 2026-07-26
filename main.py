@@ -22,7 +22,7 @@ COMMAND_TIMEOUT_SECONDS = int(os.getenv("COMMAND_TIMEOUT_SECONDS", "3600"))
 
 app = FastAPI(
     title="The Lindblad Bathymetry Converter",
-    version="1.7.0",
+    version="1.8.0",
     docs_url="/api/docs",
     redoc_url=None,
 )
@@ -71,7 +71,7 @@ def javascript() -> FileResponse:
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "version": "1.7.0"}
+    return {"status": "ok", "version": "1.8.0"}
 
 
 @app.post("/api/convert")

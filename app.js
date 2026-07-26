@@ -15,6 +15,9 @@ const stages = Array.from(document.querySelectorAll("#process-steps > div"));
 
 let map = null;
 let surveyLayerGroup = null;
+let baseTileLayer = null;
+let tileErrorCount = 0;
+let mapCanvasRenderer = null;
 let stageTimer = null;
 
 const surveyColors = ["#ffd21f", "#2cc970", "#ef5350", "#37a9ff", "#a978ff", "#ff8a34", "#20d2cf", "#f062b5"];
@@ -104,34 +107,117 @@ function completeStages() {
 
 function ensureMap() {
   if (map) return;
-  map = L.map("map", { zoomControl: true, preferCanvas: true });
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    attribution: "&copy; OpenStreetMap contributors"
-  }).addTo(map);
+
+  map = L.map("map", {
+    zoomControl: true,
+    preferCanvas: true,
+    zoomSnap: 0.25,
+    zoomDelta: 0.5,
+    worldCopyJump: false
+  });
+
+  mapCanvasRenderer = L.canvas({ padding: 0.6 });
+
+  baseTileLayer = L.tileLayer(
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      maxZoom: 19,
+      maxNativeZoom: 19,
+      noWrap: true,
+      updateWhenIdle: true,
+      keepBuffer: 6,
+      crossOrigin: true,
+      attribution: "&copy; OpenStreetMap contributors"
+    }
+  );
+
+  baseTileLayer.on("tileerror", () => {
+    tileErrorCount += 1;
+
+    // A few failed requests can happen on slow connections. If several tiles
+    // fail, remove the broken checkerboard and keep the sounding overlay on a
+    // clean ocean background. Conversion data is unaffected.
+    if (tileErrorCount >= 6 && map.hasLayer(baseTileLayer)) {
+      map.removeLayer(baseTileLayer);
+      document.getElementById("map-note").textContent =
+        "Basemap tiles could not be loaded reliably. The colored sounding tracks " +
+        "are still plotted from the converted survey coordinates.";
+      mapStatus.textContent = "Sounding map · basemap unavailable";
+      document.getElementById("map").classList.add("basemap-fallback");
+    }
+  });
+
+  baseTileLayer.addTo(map);
   surveyLayerGroup = L.layerGroup().addTo(map);
+  L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
+}
+
+function quantile(sortedValues, fraction) {
+  if (!sortedValues.length) return null;
+  const position = (sortedValues.length - 1) * fraction;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return sortedValues[lower];
+  const weight = position - lower;
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+}
+
+function calculateRobustBounds(points) {
+  if (!points.length) return null;
+
+  const latitudes = points.map(point => point[0]).sort((a, b) => a - b);
+  const longitudes = points.map(point => point[1]).sort((a, b) => a - b);
+
+  // Ignore only the most extreme 0.5% at each edge when enough samples exist.
+  // This prevents a corrupt isolated position from zooming the real survey
+  // tracks down to a tiny dot.
+  const trim = points.length >= 200 ? 0.005 : 0;
+  const south = quantile(latitudes, trim);
+  const north = quantile(latitudes, 1 - trim);
+  const west = quantile(longitudes, trim);
+  const east = quantile(longitudes, 1 - trim);
+
+  if (![south, north, west, east].every(Number.isFinite)) return null;
+  if (south === north && west === east) return L.latLngBounds([[south, west], [north, east]]);
+
+  return L.latLngBounds([[south, west], [north, east]]);
 }
 
 function renderSurveyMap(surveys) {
   ensureMap();
   surveyLayerGroup.clearLayers();
   mapLegend.innerHTML = "";
-  const allBounds = [];
+  tileErrorCount = 0;
+
+  const validMapPoints = [];
 
   surveys.forEach((survey, index) => {
     const color = surveyColors[index % surveyColors.length];
     const layer = L.layerGroup();
-    const latLngs = [];
 
     survey.points.forEach(point => {
       const [lat, lon, depth] = point;
-      latLngs.push([lat, lon]);
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lon) ||
+        !Number.isFinite(depth) ||
+        lat < -90 || lat > 90 ||
+        lon < -180 || lon > 180 ||
+        depth <= 0
+      ) {
+        return;
+      }
+
+      validMapPoints.push([lat, lon]);
+
       L.circleMarker([lat, lon], {
-        radius: 2.5,
-        stroke: false,
+        radius: 3.2,
+        weight: 0.7,
+        color,
+        opacity: 0.9,
         fillColor: color,
-        fillOpacity: 0.72,
-        renderer: L.canvas()
+        fillOpacity: 0.82,
+        renderer: mapCanvasRenderer
       }).bindTooltip(
         `<strong>${escapeHtml(survey.filename)}</strong><br>` +
         `Depth: ${depth.toFixed(1)} m<br>` +
@@ -140,28 +226,46 @@ function renderSurveyMap(surveys) {
     });
 
     layer.addTo(surveyLayerGroup);
-    if (latLngs.length) {
-      const bounds = L.latLngBounds(latLngs);
-      allBounds.push(bounds.getSouthWest(), bounds.getNorthEast());
-    }
 
     mapLegend.insertAdjacentHTML("beforeend", `
       <div class="legend-row">
         <span style="background:${color}"></span>
-        <div><strong>${escapeHtml(survey.filename)}</strong><small>${formatNumber(survey.sounding_count)} soundings · ${survey.depth_range_m.minimum.toFixed(1)}–${survey.depth_range_m.maximum.toFixed(1)} m</small></div>
+        <div>
+          <strong>${escapeHtml(survey.filename)}</strong>
+          <small>${formatNumber(survey.sounding_count)} soundings · ` +
+          `${survey.depth_range_m.minimum.toFixed(1)}–${survey.depth_range_m.maximum.toFixed(1)} m</small>
+        </div>
       </div>
     `);
   });
 
   hide(mapPlaceholder);
   show(mapLegend);
-  mapStatus.textContent = `${surveys.length} sonar file${surveys.length === 1 ? "" : "s"} mapped`;
+  mapStatus.textContent =
+    `${surveys.length} sonar file${surveys.length === 1 ? "" : "s"} mapped`;
   mapStatus.classList.add("status-pill--ready");
 
-  if (allBounds.length) {
-    map.fitBounds(L.latLngBounds(allBounds), { padding: [24, 24] });
+  const robustBounds = calculateRobustBounds(validMapPoints);
+
+  // Leaflet can calculate an incorrect tile layout if the dashboard changes
+  // size immediately before the map becomes visible. Recalculate first, fit
+  // the survey, then recalculate once more after the browser has painted it.
+  map.invalidateSize({ pan: false });
+
+  if (robustBounds && robustBounds.isValid()) {
+    map.fitBounds(robustBounds, {
+      padding: [34, 34],
+      maxZoom: 14,
+      animate: false
+    });
+  } else if (validMapPoints.length === 1) {
+    map.setView(validMapPoints[0], 12, { animate: false });
+  } else {
+    map.setView([0, 0], 2, { animate: false });
   }
-  setTimeout(() => map.invalidateSize(), 80);
+
+  window.setTimeout(() => map.invalidateSize({ pan: false }), 120);
+  window.setTimeout(() => map.invalidateSize({ pan: false }), 600);
 }
 
 function renderSurveyTable(surveys) {
