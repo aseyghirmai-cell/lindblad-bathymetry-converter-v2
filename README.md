@@ -1,37 +1,52 @@
-# Lindblad Bathymetry Converter v2.0 — No Map Maritime UI
+# Lindblad Route Planner Local First 1.0
 
-This version removes the interactive map and keeps the proven conversion engine.
-It is designed to load faster while retaining all supported input and output
-functionality.
+A static, zero-hosting-cost maritime route-planning web application for GitHub Pages.
 
-## Supported inputs
+![Planner preview](PREVIEW.png)
 
-- `.mb57`
-- `.mb57.gz`
-- Kongsberg `.all`
-- `.all.gz`
+## Privacy model
 
-The formats may be mixed in one upload. All valid soundings are combined into
-one Olex-compatible `.gz` output.
+The web host serves only the application files. OLEX databases, RTZ routes and saved route plans are processed and stored by the user's browser on the user's computer. The application contains no upload API, user accounts or central database.
 
-## Output options
+## Main functions
 
-- Raw sounding data
-- 15 × 15 m grid
-- 20 × 20 m grid
-- 25 × 25 m grid
+- Select `.olxidx.gz` files or supported gzip sounding exports containing `latitude longitude depth` rows.
+- Stream and tile OLEX data into the browser's local Origin Private File System (OPFS).
+- Import multiple RTZ routes as historical corridor overlays.
+- Open an RTZ route for editing.
+- Drag, insert, append and delete waypoints directly in the map.
+- Edit waypoint name, latitude, longitude, turn radius, speed, port/starboard XTD, wheel-over distance, geometry and remarks.
+- Zoom and pan over local OLEX depth traces with the editable route drawn above them.
+- Save route plans locally and export RTZ, JSON and CSV.
+- Back up and restore saved routes and RTZ libraries as JSON.
+- Cache the application shell for offline use after the first visit.
 
-The gridded modes retain the shallowest positive depth in each populated cell.
+## Browser requirement
 
-## Performance changes
+Use a current desktop version of **Google Chrome or Microsoft Edge**. Large OLEX indexing depends on:
 
-- Removed Leaflet and OpenStreetMap dependencies.
-- Removed map tiles and browser map rendering.
-- Removed sounding-preview sampling and map JSON from the backend.
-- The full dataset is still used for conversion.
+- `DecompressionStream`
+- IndexedDB
+- Origin Private File System through `navigator.storage.getDirectory()`
 
-## Deployment
+Safari and Firefox support varies and should not be used for a large operational library without testing.
 
-Upload the ten files in this package to the GitHub repository connected to your
-Render service, replace the previous files, commit, and deploy the latest commit.
-Use **Clear build cache & deploy** when updating from a map-enabled version.
+## Large OLEX databases
+
+There is no application-defined upload ceiling because the file is not uploaded. The practical limit is the browser's storage quota and the free disk space on the user's computer.
+
+Before importing a large database, click **Request persistent local storage**. The browser will create a local geographic tile index. This may require substantial additional disk space and can take a long time for a 50–60 GB compressed file. Keep the tab open during the first index build; gzip indexing cannot reliably resume from the middle after the tab is closed.
+
+The original OLEX source file is never changed. Clearing site data or deleting the local OLEX index removes the browser index, not the source file.
+
+## GitHub Pages deployment
+
+See `DEPLOY_GITHUB_PAGES.md`. No Docker, Caddy, server or local software installation is required.
+
+## Test files
+
+The `samples` folder contains a small RTZ route and a synthetic gzip sounding export. They are for interface testing only and are not navigational data.
+
+## Safety
+
+This is a planning aid and not an approved ECDIS/ECS. Route approval still requires official charts, UKC calculations, XTD checks, the vessel's SMS, bridge-team review and all applicable regulations.
